@@ -67,6 +67,8 @@ endif()
 
 include_directories(include
   ${CMAKE_CURRENT_SOURCE_DIR}
+  /opt/ros/humble/include
+  /opt/ros/humble/include/tf2_geometry_msgs
 )
 
 if (moveit2_lib_auto_judge) 

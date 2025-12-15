@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>robotiq_description</name>
+  <version>0.0.1</version>
+  <description>Robotiq 85 gripper description (ROS 2 port).</description>
+
+  <maintainer email="yzchen0307@gmail.com">Yen-Chang Chen</maintainer>
+  <license>BSD</license>
+
+  <!-- ROS 2 / ament_cmake -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- (可選) linters -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <!-- 這行很關鍵：強制宣告這是 ament_cmake package -->
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
