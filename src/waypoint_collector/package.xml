@@ -11,8 +11,10 @@
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
   <depend>tm_msgs</depend>
   <depend>robotiq_85_msgs</depend>
+  <depend>cv_bridge</depend>
   <depend>rqt_gui</depend>
   <depend>rqt_gui_py</depend>
   <depend>python_qt_binding</depend>

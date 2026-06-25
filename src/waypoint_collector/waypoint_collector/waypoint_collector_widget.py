@@ -4,6 +4,8 @@ import os
 import threading
 import time
 
+import cv2
+from cv_bridge import CvBridge
 from python_qt_binding.QtCore import Qt, QTimer, pyqtSignal
 from python_qt_binding.QtGui import QFont
 from python_qt_binding.QtWidgets import (
@@ -22,7 +24,10 @@ from python_qt_binding.QtWidgets import (
 
 from geometry_msgs.msg import PoseStamped
 from robotiq_85_msgs.msg import GripperCmd, GripperStat
+from sensor_msgs.msg import Image
 from tm_msgs.srv import SetPositions
+
+_cv_bridge = CvBridge()
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +98,7 @@ class WaypointCollectorWidget(QWidget):
     _sig_pose = pyqtSignal(object)
     _sig_gripper = pyqtSignal(object)
     _sig_exec_status = pyqtSignal(str, bool)  # (message, is_error)
+    _sig_record_status = pyqtSignal(str, bool)
 
     def __init__(self, node):
         super().__init__()
@@ -108,6 +114,9 @@ class WaypointCollectorWidget(QWidget):
         self._exec_waypoints = []
         self._exec_thread = None
         self._exec_stop_event = threading.Event()
+        self._camera_img_msg = None
+        self._recording_active = threading.Event()
+        self._record_thread = None
         self._build_ui()
         self._connect_signals()
         self._create_subscriptions()
@@ -307,6 +316,15 @@ class WaypointCollectorWidget(QWidget):
             'QPushButton:pressed { background-color: #311b92; }'
             'QPushButton:disabled { background-color: #aaa; }'
         )
+        self._traj_run_record_btn = QPushButton('Run && Record')
+        self._traj_run_record_btn.setMinimumHeight(36)
+        self._traj_run_record_btn.setEnabled(False)
+        self._traj_run_record_btn.setStyleSheet(
+            'QPushButton { background-color: #e65100; color: white; border-radius: 4px; }'
+            'QPushButton:hover { background-color: #ef6c00; }'
+            'QPushButton:pressed { background-color: #bf360c; }'
+            'QPushButton:disabled { background-color: #aaa; }'
+        )
         self._traj_stop_btn = QPushButton('Stop')
         self._traj_stop_btn.setFixedWidth(70)
         self._traj_stop_btn.setMinimumHeight(36)
@@ -317,6 +335,7 @@ class WaypointCollectorWidget(QWidget):
             'QPushButton:disabled { background-color: #aaa; }'
         )
         run_row.addWidget(self._traj_run_btn)
+        run_row.addWidget(self._traj_run_record_btn)
         run_row.addWidget(self._traj_stop_btn)
         layout.addLayout(run_row)
 
@@ -369,6 +388,7 @@ class WaypointCollectorWidget(QWidget):
         self._sig_pose.connect(self._on_pose_update)
         self._sig_gripper.connect(self._on_gripper_update)
         self._sig_exec_status.connect(self._on_exec_status)
+        self._sig_record_status.connect(self._on_exec_status)
         self._log_btn.clicked.connect(self._on_log_waypoint)
         self._new_traj_btn.clicked.connect(self._on_start_new_trajectory)
         self._gripper_open_btn.clicked.connect(self._on_open_gripper)
@@ -377,6 +397,7 @@ class WaypointCollectorWidget(QWidget):
         self._traj_refresh_btn.clicked.connect(self._populate_traj_dropdown)
         self._traj_load_btn.clicked.connect(self._on_load_trajectory)
         self._traj_run_btn.clicked.connect(self._on_run_trajectory)
+        self._traj_run_record_btn.clicked.connect(self._on_run_trajectory_and_record)
         self._traj_stop_btn.clicked.connect(self._on_stop_trajectory)
 
     def _create_subscriptions(self):
@@ -385,6 +406,9 @@ class WaypointCollectorWidget(QWidget):
         )
         self._gripper_sub = self._node.create_subscription(
             GripperStat, '/robotiq_gripper/state', self._gripper_cb, 10
+        )
+        self._camera_sub = self._node.create_subscription(
+            Image, '/camera/camera/color/image_raw', self._camera_cb, 1
         )
 
     def _create_gripper_publisher(self):
@@ -407,6 +431,9 @@ class WaypointCollectorWidget(QWidget):
     def _gripper_cb(self, msg: GripperStat):
         self._gripper_msg = msg
         self._sig_gripper.emit(msg)
+
+    def _camera_cb(self, msg: Image):
+        self._camera_img_msg = msg
 
     # ------------------------------------------------------------------
     # GUI slots (Qt main thread)
@@ -524,6 +551,7 @@ class WaypointCollectorWidget(QWidget):
         self._traj_loaded_lbl.setText(f'{len(waypoints)} waypoints')
         self._traj_loaded_lbl.setStyleSheet('color: #1b5e20;')
         self._traj_run_btn.setEnabled(len(waypoints) > 0)
+        self._traj_run_record_btn.setEnabled(len(waypoints) > 0)
         self._set_exec_status(f'Loaded {folder} — {len(waypoints)} waypoints')
 
     def _on_run_trajectory(self):
@@ -534,6 +562,7 @@ class WaypointCollectorWidget(QWidget):
 
         self._exec_stop_event.clear()
         self._traj_run_btn.setEnabled(False)
+        self._traj_run_record_btn.setEnabled(False)
         self._traj_stop_btn.setEnabled(True)
         self._traj_load_btn.setEnabled(False)
         self._log_btn.setEnabled(False)
@@ -545,6 +574,34 @@ class WaypointCollectorWidget(QWidget):
         )
         self._exec_thread.start()
 
+    def _on_run_trajectory_and_record(self):
+        if not self._exec_waypoints:
+            return
+        if self._exec_thread and self._exec_thread.is_alive():
+            return
+
+        folder = self._traj_select_combo.currentText()
+        self._exec_stop_event.clear()
+        self._recording_active.clear()
+        self._traj_run_btn.setEnabled(False)
+        self._traj_run_record_btn.setEnabled(False)
+        self._traj_stop_btn.setEnabled(True)
+        self._traj_load_btn.setEnabled(False)
+        self._log_btn.setEnabled(False)
+
+        self._record_thread = threading.Thread(
+            target=self._record_thread_fn,
+            args=(folder,),
+            daemon=True,
+        )
+        self._exec_thread = threading.Thread(
+            target=self._trajectory_thread_fn,
+            args=(list(self._exec_waypoints), True),
+            daemon=True,
+        )
+        self._record_thread.start()
+        self._exec_thread.start()
+
     def _on_stop_trajectory(self):
         self._exec_stop_event.set()
         self._set_exec_status('Stopping after current waypoint…')
@@ -554,6 +611,7 @@ class WaypointCollectorWidget(QWidget):
         # Re-enable buttons when done (thread finished)
         if not (self._exec_thread and self._exec_thread.is_alive()):
             self._traj_run_btn.setEnabled(bool(self._exec_waypoints))
+            self._traj_run_record_btn.setEnabled(bool(self._exec_waypoints))
             self._traj_stop_btn.setEnabled(False)
             self._traj_load_btn.setEnabled(True)
             self._log_btn.setEnabled(True)
@@ -568,12 +626,15 @@ class WaypointCollectorWidget(QWidget):
     # Execution thread (not the ROS executor thread)
     # ------------------------------------------------------------------
 
-    def _trajectory_thread_fn(self, waypoints):
+    def _trajectory_thread_fn(self, waypoints, record=False):
         total = len(waypoints)
 
         if not self._set_pos_client.wait_for_service(timeout_sec=3.0):
             self._sig_exec_status.emit('set_positions service not available', True)
             return
+
+        if record:
+            self._recording_active.set()
 
         for i, wp in enumerate(waypoints):
             if self._exec_stop_event.is_set():
@@ -643,7 +704,52 @@ class WaypointCollectorWidget(QWidget):
             self._publish_gripper_cmd(gripper_pos)
             time.sleep(_EXEC_GRIPPER_SETTLE)
 
+        if record:
+            self._recording_active.clear()
         self._sig_exec_status.emit(f'Done — {total} waypoints executed', False)
+
+    def _record_thread_fn(self, folder):
+        log_path = os.path.join(self._data_dir, folder, 'trajectory_log.csv')
+        img_dir = os.path.join(self._data_dir, folder, 'images')
+        os.makedirs(img_dir, exist_ok=True)
+
+        with open(log_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['timestamp', 'state'])
+
+            while not self._exec_stop_event.is_set():
+                if not self._recording_active.is_set():
+                    if not self._recording_active.wait(timeout=0.5):
+                        if self._exec_thread and not self._exec_thread.is_alive():
+                            break
+                    continue
+
+                ts = time.time()
+                ts_ms = int(ts * 1000)
+
+                pose = self._pose_msg
+                if pose is not None:
+                    p = pose.pose.position
+                    q = pose.pose.orientation
+                    rx, ry, rz = _quat_to_euler_deg(q.x, q.y, q.z, q.w)
+                    gripper = 0 if (self._last_gripper_cmd_pos is None or
+                                    self._last_gripper_cmd_pos == _GRIPPER_OPEN_POS) else 1
+                    state = (f'[{p.x:.6f},{p.y:.6f},{p.z:.6f},'
+                             f'{rx:.4f},{ry:.4f},{rz:.4f},{gripper}]')
+                    writer.writerow([f'{ts:.3f}', state])
+                    f.flush()
+
+                img_msg = self._camera_img_msg
+                if img_msg is not None:
+                    try:
+                        cv_img = _cv_bridge.imgmsg_to_cv2(img_msg, desired_encoding='bgr8')
+                        cv2.imwrite(os.path.join(img_dir, f'{ts_ms}.png'), cv_img)
+                    except Exception:
+                        pass
+
+                time.sleep(0.2)  # 5 Hz
+
+        self._sig_record_status.emit(f'Recording saved → {folder}', False)
 
     def _on_open_gripper(self):
         self._publish_gripper_cmd(_GRIPPER_OPEN_POS)
@@ -751,13 +857,17 @@ class WaypointCollectorWidget(QWidget):
 
     def shutdown(self):
         self._exec_stop_event.set()
+        self._recording_active.set()  # unblock any wait() in record thread
         if self._exec_thread and self._exec_thread.is_alive():
             self._exec_thread.join(timeout=2.0)
+        if self._record_thread and self._record_thread.is_alive():
+            self._record_thread.join(timeout=2.0)
         if self._csv_file and not self._csv_file.closed:
             self._csv_file.close()
         try:
             self._node.destroy_subscription(self._pose_sub)
             self._node.destroy_subscription(self._gripper_sub)
+            self._node.destroy_subscription(self._camera_sub)
             self._node.destroy_publisher(self._gripper_cmd_pub)
             self._node.destroy_client(self._set_pos_client)
         except Exception:
