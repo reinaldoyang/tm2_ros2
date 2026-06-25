@@ -4,7 +4,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
-GRIPPER_COMPORT = '/dev/ttyUSB1'
+GRIPPER_COMPORT = '/dev/ttyUSB2'
 
 
 def generate_launch_description():
@@ -34,8 +34,24 @@ def generate_launch_description():
         remappings=[('/gripper/stat', '/robotiq_gripper/state')],
     )
 
+    realsense_node = Node(
+        package='realsense2_camera',
+        executable='realsense2_camera_node',
+        name='camera',
+        namespace='camera',
+        output='screen',
+        parameters=[{
+            'enable_color': True,
+            'enable_depth': False,
+            'color_width': 640,
+            'color_height': 480,
+            'color_fps': 30.0,
+        }],
+    )
+
     return LaunchDescription([
         robot_ip_arg,
         tm_driver_node,
         gripper_driver_node,
+        realsense_node,
     ])

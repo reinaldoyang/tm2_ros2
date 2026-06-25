@@ -140,3 +140,81 @@ See [MoveIt2 tutorial](https://moveit.ros.org/install-moveit2/binary/) to instal
 ## __8. Contact us / Technical support__   [![Email](https://img.shields.io/badge/-Email-c14438?style=flat&logo=Gmail&logoColor=white)](mailto:tmsales@tm-robot.com)
 More Support & Service, please contact us. [@TECHMAN ROBOT](https://www.tm-robot.com/en/contact-us/)``[https://www.tm-robot.com/en/contact-us/] ``<br/>
 <div> </div>
+
+---
+
+## __9. Waypoint Collector & Gripper Driver (Custom Extension)__
+
+This repository includes additional packages for teleoperated waypoint collection and trajectory replay with a Robotiq 85 gripper and Intel RealSense camera.
+
+### Added packages
+
+| Package | Description |
+|---|---|
+| `src/waypoint_collector` | rqt GUI plugin for recording and replaying Cartesian waypoints |
+| `src/robotiq_85_driver` | ROS2 driver for the Robotiq 85 gripper (RS-485 Modbus RTU) |
+| `src/robotiq_85_msgs` | Message/service definitions for the gripper |
+| `src/robotiq_85_description` | URDF description of the Robotiq 85 gripper |
+
+### Hardware requirements
+
+- Techman Robot (TM5S / TM7S / TM12S / TM14S or similar), connected via Ethernet
+- Robotiq 85 gripper, connected via RS-485 USB adapter (default `/dev/ttyUSB1`)
+- Intel RealSense camera (D435 or similar), connected via USB 3
+
+### Prerequisites
+
+**ROS 2 Humble** must be installed. Then install system dependencies:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  ros-humble-cv-bridge \
+  ros-humble-realsense2-camera \
+  python3-opencv \
+  python3-serial
+```
+
+### Setup
+
+```bash
+# 1. Clone
+git clone https://github.com/reinaldoyang/tm2_ros2.git
+cd tm2_ros2
+
+# 2. Install ROS dependencies
+rosdep install --from-paths . src --ignore-src -r -y
+
+# 3. Build
+colcon build
+
+# 4. Source
+source install/setup.bash
+```
+
+### Running
+
+```bash
+# Replace 192.168.10.2 with your robot's IP address
+./src/waypoint_collector/scripts/start.sh 192.168.10.2
+```
+
+This launches:
+- `tm_driver` — connects to the TM robot over Ethernet
+- `robotiq_85_driver` — connects to the gripper over `/dev/ttyUSB1`
+- `rqt` — opens the Waypoint Collector GUI
+
+To change the gripper serial port, edit `GRIPPER_COMPORT` at the top of  
+`src/waypoint_collector/launch/waypoint_collector.launch.py` and rebuild.
+
+### Waypoint Collector GUI
+
+| Feature | Description |
+|---|---|
+| **Log Waypoint** (Space) | Saves current robot pose + gripper state to `data/trajectory_XXX/waypoints.csv` |
+| **Start New Trajectory** | Opens a new numbered trajectory folder |
+| **Gripper Control** | Open / close the gripper manually |
+| **Run Trajectory** | Replays a recorded trajectory on the robot |
+| **Run & Record** | Replays a trajectory while simultaneously recording pose+gripper at 5 Hz to `trajectory_log.csv` and camera images at 5 Hz to `images/` |
+
+Recorded data is saved to `~/tm_ws/tm2_ros2/data/` (excluded from git).

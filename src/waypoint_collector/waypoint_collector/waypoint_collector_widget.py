@@ -1,6 +1,7 @@
 import csv
 import math
 import os
+import shutil
 import threading
 import time
 
@@ -91,6 +92,7 @@ _EXEC_ACC_TIME = 200.0       # ms acceleration time
 _EXEC_ARRIVE_TOL = 0.005     # 5 mm position tolerance for arrival detection
 _EXEC_ARRIVE_TIMEOUT = 30.0  # seconds before giving up on arrival
 _EXEC_GRIPPER_SETTLE = 0.3   # seconds to let gripper start moving
+_RECORD_HZ = 5.0             # pose + image recording frequency during Run & Record
 
 
 class WaypointCollectorWidget(QWidget):
@@ -711,7 +713,9 @@ class WaypointCollectorWidget(QWidget):
     def _record_thread_fn(self, folder):
         log_path = os.path.join(self._data_dir, folder, 'trajectory_log.csv')
         img_dir = os.path.join(self._data_dir, folder, 'images')
-        os.makedirs(img_dir, exist_ok=True)
+        if os.path.isdir(img_dir):
+            shutil.rmtree(img_dir)
+        os.makedirs(img_dir)
 
         with open(log_path, 'w', newline='') as f:
             writer = csv.writer(f)
@@ -747,7 +751,7 @@ class WaypointCollectorWidget(QWidget):
                     except Exception:
                         pass
 
-                time.sleep(0.2)  # 5 Hz
+                time.sleep(1.0 / _RECORD_HZ)
 
         self._sig_record_status.emit(f'Recording saved → {folder}', False)
 
