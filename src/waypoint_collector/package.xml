@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>waypoint_collector</name>
+  <version>0.1.0</version>
+  <description>rqt plugin for manual waypoint collection from TM robot + Robotiq 85 gripper</description>
+  <maintainer email="reinaldoyang5@gmail.com">Reinaldo Yang</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tm_msgs</depend>
+  <depend>robotiq_85_msgs</depend>
+  <depend>rqt_gui</depend>
+  <depend>rqt_gui_py</depend>
+  <depend>python_qt_binding</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+  </export>
+</package>

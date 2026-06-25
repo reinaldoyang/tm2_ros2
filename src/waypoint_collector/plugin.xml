@@ -1,0 +1,20 @@
+<library path="waypoint_collector">
+  <class name="waypoint_collector/WaypointCollector"
+         type="waypoint_collector.waypoint_collector_plugin.WaypointCollectorPlugin"
+         base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Manually log robot waypoints (pose + gripper state) to CSV trajectories.
+      Subscribes to /tool_pose and /robotiq_gripper/state.
+    </description>
+    <qtgui>
+      <group>
+        <label>TM Robot</label>
+        <icon type="theme">folder</icon>
+        <statustip>TM Robot utilities</statustip>
+      </group>
+      <label>Waypoint Collector</label>
+      <icon type="theme">media-record</icon>
+      <statustip>Manually collect robot waypoints into trajectory CSV files</statustip>
+    </qtgui>
+  </class>
+</library>
