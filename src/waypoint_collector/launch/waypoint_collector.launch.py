@@ -4,7 +4,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
-GRIPPER_COMPORT = '/dev/ttyUSB2'
+GRIPPER_COMPORT = '/dev/ttyUSB1'
 
 
 def generate_launch_description():
@@ -45,7 +45,7 @@ def generate_launch_description():
             'enable_depth': False,
             'color_width': 640,
             'color_height': 480,
-            'color_fps': 30.0,
+            'color_fps': 5.0,
         }],
     )
 
