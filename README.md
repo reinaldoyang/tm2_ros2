@@ -130,7 +130,8 @@ This chapter describes how the user can use a script program to extract specific
 &#10148; For example, you can try to run __MoveIt__ on the TM robot<br/>
 The user can use MoveIt to control the TM robot in the motion planning to plan paths or run the TM Robot simulation in your scene description for operations such as _collision checking_ or _obstacle avoidance_.
 See [MoveIt2 tutorial](https://moveit.ros.org/install-moveit2/binary/) to install the MoveIt2 packages.<br/>
-- [Usage Guideline](./doc/tm_humble_extension.md)
+- [Usage Guideline]/
+data/(./doc/tm_humble_extension.md)
 
 > [!TIP]  
 > 1. Some software packages with ROS2 Humble MoveIt2 configurations for TM Cobots are available for TM5S, TM7S, TM12S, TM14S, TM25S, TM30S, and (without the integrated camera) TM5SX, TM7SX, TM12SX, TM14SX, TM25SX, and TM30SX models.<br/>
@@ -218,3 +219,11 @@ To change the gripper serial port, edit `GRIPPER_COMPORT` at the top of
 | **Run & Record** | Replays a trajectory while simultaneously recording pose+gripper at 5 Hz to `trajectory_log.csv` and camera images at 5 Hz to `images/` |
 
 Recorded data is saved to `~/tm_ws/tm2_ros2/data/` (excluded from git).
+
+### To run GUI 
+```bash
+source /opt/ros/humble/setup.bash
+source ~/tm_ws/install/setup.bash
+source ~/tm_ws/tm2_ros2/install/local_setup.bash
+./src/waypoint_collector/scripts/start.sh 192.168.10.2
+```
