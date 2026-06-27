@@ -1,152 +1,8 @@
-# __TECHMAN ROBOT__
+## Waypoint Collector & Gripper Driver
 
-## __1. Overview__
+This repository extends the Techman Robot ROS2 driver with packages for teleoperated waypoint collection and trajectory replay using a Robotiq 85 gripper and Intel RealSense camera.
 
-Techman Robot is a state-of-the-art production tool that is highly compatible and flexible to collaboration between human and machine. The Robot Operating System (ROS) provides abundant libraries and tools which can be utilized to reduce the cost of trivial development software tools and build robot applications without struggling. Our TM ROS driver provides nodes for communication with Techman Robot controllers, data including robot states, images from the eye-in-hand camera, and URDF models for various robot arms via __TMflow__ <sup>1</sup>. In addition to TM ROS Driver, TM Robot also provides related resources, such as sample programs, GUI tools for debugging, and resource description files required for simulation on MoveIt or Gazebo.
-<div> </div>
-This manual applies to TMflow Version 2.14 or above and adapts to HW5.0 mainly.
-
-## __2. TM ROS Driver Feature__
-
-The TM ROS driver connects to _TMflow Ethernet Slave_ to control _TMflow_ project. The robot state is transmitted through this connection.  A working driver also connects to a __Listen Node__ <sup>2</sup> (running at a _TMflow project_) at the same time. To control the robot locomotion, IO, etc., the TM ROS driver sends the robot script (__TMscript__ <sup>3</sup>) through this connection. More information about __TM Robot Expression__ <sup>4</sup> and _Ethernet Slave_, see the defined protocol <sup>4</sup> _Expression Editor Manual_.<br/>
-
-> [!NOTE]  
-> To use the driver, make sure your ROS PC is installed correctly.  
-
-&#10146; <sup>1</sup>  __TMflow__ is a graphical human-machine interface (HMI).<br/>
-&#10146; <sup>2</sup>  __Listen Node__: A socket server can be established and connected by an external device to communicate according to the defined protocol in the _Listen Node_. All the functions available in _Expression Editor_ can also be executed in Listen Node.<br/>
-&#10146; <sup>3</sup>  __TMscript__ is the programming language of Techman Robot applicable to Flow projects and Script projects.<br/>
-&#10146; <sup>4</sup>  __Techman Robot Expression__ (defined protocol) is the programming language of Techman Robot applicable to Flow programming projects and Script programming projects.<br/>
->
-Some relevant references [Docs](https://www.tm-robot.com/en/docs/introducing-tmflow-2-14/):
-> :bookmark_tabs: The _Expression Editor_ version changes may have slightly different settings. (Several old versions for reference: ([Expression Editor_1.88_Rev1.00](https://www.tm-robot.com/zh-hant/wpfd_file/expression-editor_1-88_rev1-00_en/)) ([1.84_Rev1.00](https://www.tm-robot.com/zh-hant/wpfd_file/expression-editor-and-listen-node_1-84_rev1-00_en-2/))<br/>
-> :bookmark_tabs: The user can download the new "_Expression Editor Manual_" from [TM Download Center](https://www.tm-robot.com/en/download-center/) or [Contact us](https://www.tm-robot.com/en/contact-us/).<br/>
-
-TM ROS Driver consists of three main parts: Topic Publisher, Service Server, and Action Server: 
-
-> __Topic Publisher__
->
-> - publish feedback state on _/feedback_states_  
-The FeedbackState includes robot position, error code, and IO status, etc.
-(see _tm_msgs/msg/FeedbackState.msg_)  
-> - publish joint states on _/joint_states_  
-> - publish tool pose on _/tool_pose_
->
-> __Service Server__
->
-> - _/tm_driver/send_script_ (see _tm_msgs/srv/SendScript.srv_) :  
-send robot script (_TM Robot Expression_) to _Listen Node_  
-> - _/tm_driver/set_event_ (see _tm_msgs/srv/SetEvent.srv_) :  
-Send "Stop", "Pause", or "Resume" commands to _Listen Node_  
-> - _/tm_driver/set_io_ (see _tm_msgs/srv/SetIO.srv_) :  
-send digital or analog output value to _Listen Node_  
-> - _/tm_driver/set_positions (see _tm_msgs/srv/SetPositions.srv_) :  
-Send motion command to _Listen Node_, the motion type includes PTP_J, PTP_T, LINE_T, the position value is a joint angle(__J__) or Cartesian coordinate(__T__), see [The TM "Expression Editor" manual]
->
-> __Action Server__
->
-> - An action interface on _/follow_joint_trajectory_ for seamless integration with MoveIt
->
-
-The _Topic Publisher_ connects to _TMflow_ through the Ethernet slave, collects robot-related data, and publishes it as a topic (such as robot states, joint states, end tool pose, etc.), and the customer's ROS node can subscribe to these topics to obtain data. The role of the _Service Server_ interface is to control the movement of the robot and provide various movement instructions  _tm_msgs_. When the _TMflow project_ runs to the _Listen Node_, the customer's ROS node can issue instructions to the _Listen node_ through the _Service Server_ to drive the robot. The role of the _Action Server_ interface is to translate the trajectory calculated by MoveIt into the movement command of the robot and drive the robot to complete the trajectory.
-<div> </div>
-
-## __3. TM ROS Driver Usage and Installation__
-
-The TM ROS driver is designed to interface the TM Robot's operating software (_TMflow_) with the Robot Operating System (ROS) so that program developers and researchers can build and reuse their own programs to control the TM robot externally.<br/>
-[![TM ROS Driver](https://markdown-videos.vercel.app/youtube/LuKE2wVNn5Y)](https://youtu.be/LuKE2wVNn5Y)[![TM AI Cobot](https://markdown-videos.vercel.app/youtube/EG3v1KbxLoM.gif)](https://youtu.be/EG3v1KbxLoM.gif)<br/>
-
-If the user wants to know how to use the TM ROS driver, please visit the TM ROS APP website or directly click the TM ROS APP version listed in the table below.
-
-<table>
-<head>
-</head>
-    <tr>
-        <th colspan="5">TMflow 2 + TM AI Cobot S-Series </th>
-    </tr>
-    <tr>
-        <th>ROS Distro</th>
-        <th>GitHub repo: TM 2 App Release</th>
-        <th>TM ROS Driver</th>
-        <th>TMvision Support</th>
-        <th>GitHub Branch</th>
-    </tr>
-    <tr>
-        <td><a href="http://wiki.ros.org/noetic">ROS Noetic Ninjemys</a></td>
-        <td><a href="https://github.com/TechmanRobotInc/tm2_ros1">TM2 ROS1 Noetic</a></td>
-        <th>&#9711;</th>
-        <th>&#9711;</th>
-        <th>noetic</th>
-    </tr>
-    <tr>
-        <td><a href="https://index.ros.org/doc/ros2/Releases/Release-Foxy-Fitzroy/">ROS 2 Foxy Fitzroy</a></td>
-        <td><a href="https://github.com/TechmanRobotInc/tm2_ros2">TM2 ROS2 Foxy</a></td>
-        <th>&#9711;</th>
-        <th>&#9711;</th>
-        <th>foxy</th>
-    </tr>
-    <tr>
-        <td><a href="https://docs.ros.org/en/humble/index.html">ROS 2 Humble Hawksbill</a></td>
-        <td><a href="https://github.com/TechmanRobotInc/tm2_ros2/tree/humble">TM2 ROS2 Humble</a></td>
-        <th>&#9711;</th>
-        <th>&#9711;</th>
-        <th>humble</th>
-    </tr>
-</table>
-
-&#10148; Example: If your ROS PC is installed with ROS 2 Humble Hawksbill, see [TM2 ROS2 Humble](https://github.com/TechmanRobotInc/tm2_ros2/tree/humble).<br/>
-
-- [Usage Guideline](./doc/tm_humble.md)
-
-> :bookmark_tabs: This repository only supports the _External TM ROS Driver_ and related packages. For the _Embedded TM ROS Driver_, please refer to the Embedded TM ROS Driver User Manual _[2.14](https://www.tm-robot.com/en/download-center/#3100-4746-wpfd-embedded-tm-ros-driver-manual)_ for more details, and download the corresponding support package[s](https://www.tm-robot.com/en/download-center/#3100-4745-wpfd-embedded-tm-ros-driver) from the [TM Download Center](https://www.tm-robot.com/en/download-center/).<br/>
-> :bookmark_tabs: Using _TMflow_, especially the Listen Nodes and Vision Nodes (external detection), please refer to _Software Manual TMflow ([SW2.14](https://www.tm-robot.com/zh-hant/wpfd_file/software_tmflow_sw2-14_rev1-01_en/))_  and _Software Manual TMvision ([SW2.14](https://www.tm-robot.com/zh-hant/wpfd_file/software_tm-3dvision_sw2-14_rev1-00_en/))_ for more details.<br/>
-> :bookmark_tabs: Using _TMscript_ (expressions, the Listen Node commands, etc.), please refer to the Manual: [Programming Language TMscript](https://www.tm-robot.com/zh-hant/wpfd_file/programming-language-tmscript_2-20_rev1-0_en/) for more details.<br/>
-  
-<div> </div>
-
-## __4. TM Program Script Demonstration__
-This chapter describes the demo package and the code used as a C++ programming example, showing how to program robot scripts (TM Robot Expressions) through the TM ROS driver connection.
-- [Usage Guideline](./doc/tm_humble_demo.md)
-
-:technologist:: See the demo code [`demo_send_script`](./demo/src/demo_send_script.cpp) as an example.
-<div> </div>
-
-## __5. TM External GUI debugging and Demonstration__
-This chapter describes a simplified GUI for displaying tm_driver connection status, sct, sta, svr messages, and robot status. The user can optionally install the _tm_inspect_ package to aid in viewing messages between the driver and the robot through the GUI display.
-- [Usage Guideline](./doc/tm_humble_gui.md)
-<div> </div>
-
-## __6. Generate your TM Robot-Specific Kinematics Parameters Files__
-Real kinematic values vary from one TM robot to another as each robot is calibrated at the factory.<br/>
-This chapter describes how the user can use a script program to extract specific kinematic values from your TM robot. The Python script function automatically generates a new URDF robot file that has XML macros in it (i.e., a new Xacro robot file) using a specific set of commands.
-- [Usage Guideline](./doc/tm_humble_description.md)
-
-> [!TIP]   
-> 1. If the user just wants to use the TM Robot nominal model to control the robot, the user can skip the rest of this chapter.<br/>
-> 2. The tm_description package contains description files and meshes, available for TM5S, TM7S, TM12S, TM14S, TM25S, TM30S, and (without the integrated camera) TM5SX, TM7SX, TM12SX, TM14SX, TM25SX, and TM30SX models.<br/>
-<div> </div>
-
-## __7. Related ROS Projects and Tutorials Usage__
-&#10148; For example, you can try to run __MoveIt__ on the TM robot<br/>
-The user can use MoveIt to control the TM robot in the motion planning to plan paths or run the TM Robot simulation in your scene description for operations such as _collision checking_ or _obstacle avoidance_.
-See [MoveIt2 tutorial](https://moveit.ros.org/install-moveit2/binary/) to install the MoveIt2 packages.<br/>
-- [Usage Guideline]/
-data/(./doc/tm_humble_extension.md)
-
-> [!TIP]  
-> 1. Some software packages with ROS2 Humble MoveIt2 configurations for TM Cobots are available for TM5S, TM7S, TM12S, TM14S, TM25S, TM30S, and (without the integrated camera) TM5SX, TM7SX, TM12SX, TM14SX, TM25SX, and TM30SX models.<br/>
-> 2. Some software packages with ROS2 Humble Gazebo Fortress configurations for TM Cobots are available for TM5S, TM7S, TM12S, TM14S, TM25S, TM30S, and (without the integrated camera) TM5SX, TM7SX, TM12SX, TM14SX, TM25SX, and TM30SX models.<br/>
-<div> </div>
-
-## __8. Contact us / Technical support__   [![Email](https://img.shields.io/badge/-Email-c14438?style=flat&logo=Gmail&logoColor=white)](mailto:tmsales@tm-robot.com)
-More Support & Service, please contact us. [@TECHMAN ROBOT](https://www.tm-robot.com/en/contact-us/)``[https://www.tm-robot.com/en/contact-us/] ``<br/>
-<div> </div>
-
----
-
-## __9. Waypoint Collector & Gripper Driver (Custom Extension)__
-
-This repository includes additional packages for teleoperated waypoint collection and trajectory replay with a Robotiq 85 gripper and Intel RealSense camera.
+This method is a 2 stage data collection pipeline for Techman robot for robot learning research. First stage is to collect waypoints, second stage is to replay those waypoints and have another process record the image and robot states at certain frequency.
 
 ### Added packages
 
@@ -157,73 +13,150 @@ This repository includes additional packages for teleoperated waypoint collectio
 | `src/robotiq_85_msgs` | Message/service definitions for the gripper |
 | `src/robotiq_85_description` | URDF description of the Robotiq 85 gripper |
 
+---
+
 ### Hardware requirements
 
 - Techman Robot (TM5S / TM7S / TM12S / TM14S or similar), connected via Ethernet
-- Robotiq 85 gripper, connected via RS-485 USB adapter (default `/dev/ttyUSB1`)
-- Intel RealSense camera (D435 or similar), connected via USB 3
+- Robotiq 85 gripper, connected via RS-485 USB adapter
+- Intel RealSense camera (D435 or similar)
 
-### Prerequisites
+---
 
-**ROS 2 Humble** must be installed. Then install system dependencies:
+### Step 1 — Configure the TM robot (TMflow)
+
+Before ROS2 can send commands to the robot, the robot must be running a TMflow project that includes a **Listen Node** as its entry point.
+
+1. Create listen node loop on TMflow
+2. Make sure to play the flow
+
+If the project is not running, `tm_driver` will connect but the robot will not accept motion commands.
+
+Make sure to wait until the listen node is properly established before sending commands.
+---
+
+### Step 2 — System dependencies
+
+**ROS 2 Humble** must already be installed. Then install the following:
 
 ```bash
-sudo apt update
+# RealSense SDK (required before the ROS wrapper)
+
+# ROS and Python dependencies
 sudo apt install -y \
+  ros-humble-rqt \
+  ros-humble-rqt-gui \
   ros-humble-cv-bridge \
   ros-humble-realsense2-camera \
   python3-opencv \
   python3-serial
 ```
 
-### Setup
+#### USB serial port permissions
+
+The gripper uses an RS-485 USB adapter. Add your user to the `dialout` group or the driver will fail with a permission error:
 
 ```bash
-# 1. Clone
-git clone https://github.com/reinaldoyang/tm2_ros2.git
+sudo usermod -aG dialout $USER
+```
+
+**Log out and log back in** for this to take effect. Verify with `groups | grep dialout`.
+
+---
+
+### Step 3 — Clone and build
+
+Clone the repo into your ROS2 workspace src directory, then build from the workspace root:
+
+```bash
+mkdir -p ~/tm_ws
+cd ~/tm_ws
+git clone https://github.com/reinaldoyang/tm2_ros2.git tm2_ros2
 cd tm2_ros2
 
-# 2. Install ROS dependencies
-rosdep install --from-paths . src --ignore-src -r -y
+# Install remaining ROS dependencies
+rosdep install --from-paths src --ignore-src -r -y
 
-# 3. Build
+# Build
 colcon build
 
-# 4. Source
+# Source
 source install/setup.bash
 ```
 
-### Running
+---
+
+### Step 4 — Identify the gripper serial port
+
+Plug in the RS-485 USB adapter and find the device name:
 
 ```bash
-# Replace 192.168.10.2 with your robot's IP address
+ls /dev/ttyUSB*
+```
+
+Typically `/dev/ttyUSB0` if it is the only USB serial device. If you have other USB serial devices connected, it may be `/dev/ttyUSB1` or higher.
+
+---
+
+### Step 5 — Launch
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/tm_ws/tm2_ros2/install/setup.bash
+
+# Replace 192.168.10.2 with your robot's IP
 ./src/waypoint_collector/scripts/start.sh 192.168.10.2
 ```
 
-This launches:
+This launches three nodes:
 - `tm_driver` — connects to the TM robot over Ethernet
-- `robotiq_85_driver` — connects to the gripper over `/dev/ttyUSB1`
+- `robotiq_85_driver` — connects to the gripper over the specified serial port
+- `realsense2_camera_node` — streams color images at 5 Hz
 - `rqt` — opens the Waypoint Collector GUI
 
-To change the gripper serial port, edit `GRIPPER_COMPORT` at the top of  
-`src/waypoint_collector/launch/waypoint_collector.launch.py` and rebuild.
+#### Verify connections
+
+After launching, check that all three nodes are running without errors in the terminal output:
+- `tm_driver` should print something like `TM_ROS: connected`
+- `robotiq_85_driver` should print gripper status without serial errors
+- If the RealSense camera is not connected, the camera node will error but waypoint collection still works
+
+During the first stage of waypoint collection, it's normal if the driver for the gripper and the robot to have some warning or errors, they can still move properly.
+---
 
 ### Waypoint Collector GUI
 
-| Feature | Description |
-|---|---|
-| **Log Waypoint** (Space) | Saves current robot pose + gripper state to `data/trajectory_XXX/waypoints.csv` |
-| **Start New Trajectory** | Opens a new numbered trajectory folder |
-| **Gripper Control** | Open / close the gripper manually |
-| **Run Trajectory** | Replays a recorded trajectory on the robot |
-| **Run & Record** | Replays a trajectory while simultaneously recording pose+gripper at 5 Hz to `trajectory_log.csv` and camera images at 5 Hz to `images/` |
+| Feature | Shortcut | Description |
+|---|---|---|
+| **Log Waypoint** | Space | Saves current robot pose + gripper state to `waypoints.csv` |
+| **Start New Trajectory** | — | Opens a new numbered trajectory folder |
+| **Gripper Open / Close** | — | Manually controls the gripper |
+| **Run Trajectory** | — | Replays a recorded trajectory on the robot |
+| **Run & Record** | — | Replays while recording pose+gripper at 5 Hz and camera images to `images/` |
+
+---
+
+### Output data format
 
 Recorded data is saved to `~/tm_ws/tm2_ros2/data/` (excluded from git).
 
-### To run GUI 
-```bash
-source /opt/ros/humble/setup.bash
-source ~/tm_ws/install/setup.bash
-source ~/tm_ws/tm2_ros2/install/local_setup.bash
-./src/waypoint_collector/scripts/start.sh 192.168.10.2
+Each trajectory is saved in its own numbered folder:
+
 ```
+data/
+  trajectory_001/
+    waypoints.csv       # manually logged waypoints
+    trajectory_log.csv  # auto-recorded during Run & Record (5 Hz)
+    images/             # camera frames recorded during Run & Record
+```
+
+Both CSV files share the same format:
+
+```
+timestamp,state
+1782446262.045,"[x, y, z, rx, ry, rz, gripper]"
+```
+
+- `x y z` — TCP position in metres
+- `rx ry rz` — TCP orientation in degrees (Euler)
+- `gripper` — `1` = closed, `0` = open
